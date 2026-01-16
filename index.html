@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GODS PLAN | VELOCITY</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Lucide Icons (Vanilla JS version exposes window.lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            background-color: #050505;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(60, 0, 0, 0.4) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(40, 0, 0, 0.3) 0%, transparent 40%);
+            font-family: 'JetBrains Mono', monospace;
+            color: #d4d4d4;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(10, 5, 5, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(220, 38, 38, 0.15);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            color: #fff;
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus {
+            border-color: #ef4444;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+            outline: none;
+        }
+
+        .glass-btn {
+            background: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            color: #ef4444;
+            transition: all 0.2s ease;
+        }
+        .glass-btn:hover {
+            background: rgba(220, 38, 38, 0.2);
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.3);
+            color: #fff;
+        }
+        .glass-btn.active {
+            background: rgba(220, 38, 38, 0.8);
+            color: #000;
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+            border-color: transparent;
+        }
+
+        /* Text Effects */
+        .text-glow {
+            text-shadow: 0 0 10px rgba(220, 38, 38, 0.5);
+        }
+        
+        .cursor-caret {
+            background-color: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+
+        /* Animations */
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; box-shadow: 0 0 10px #ef4444; }
+            50% { opacity: 0.5; box-shadow: 0 0 2px #ef4444; }
+        }
+        .animate-caret {
+            animation: pulse-red 1s infinite;
+        }
+
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0505; }
+        ::-webkit-scrollbar-thumb { background: #331111; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #551111; }
+    </style>
+</head>
+<body>
+
+    <div id="root"></div>
+
+    <script type="module">
+        // Firebase Modular SDK Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Expose Firebase to window so React component can access it
+        window.firebaseModules = {
+            initializeApp, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged,
+            getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp
+        };
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // --- LUCIDE ICON ADAPTER FOR REACT ---
+        // Converts the vanilla Lucide definitions into React Components
+        const LucideIcon = ({ name, size = 24, className = "" }) => {
+            const iconData = window.lucide?.icons?.[name];
+            if (!iconData) return null;
+            
+            return React.createElement('svg', {
+                xmlns: "http://www.w3.org/2000/svg",
+                width: size,
+                height: size,
+                viewBox: "0 0 24 24",
+                fill: "none",
+                stroke: "currentColor",
+                strokeWidth: "2",
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+                className: `lucide lucide-${name.toLowerCase()} ${className}`
+            }, iconData.map((child, index) => {
+                const [tag, attrs] = child;
+                return React.createElement(tag, { ...attrs, key: index });
+            }));
+        };
+
+        // Define the specific icons we use as Components
+        const Zap = (props) => <LucideIcon name="Zap" {...props} />;
+        const User = (props) => <LucideIcon name="User" {...props} />;
+        const LogOut = (props) => <LucideIcon name="LogOut" {...props} />;
+        const Globe = (props) => <LucideIcon name="Globe" {...props} />;
+        const Clock = (props) => <LucideIcon name="Clock" {...props} />;
+        const Trophy = (props) => <LucideIcon name="Trophy" {...props} />;
+        const RotateCcw = (props) => <LucideIcon name="RotateCcw" {...props} />;
+        const AlertCircle = (props) => <LucideIcon name="AlertCircle" {...props} />;
+        const Terminal = (props) => <LucideIcon name="Terminal" {...props} />;
+
+
+        // --- CONFIGURACIÓN FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0lX3XmVPQHNNxpsZS82YzDMzM6MLhq3g",
+            authDomain: "godsplan-blqa.firebaseapp.com",
+            projectId: "godsplan-blqa",
+            storageBucket: "godsplan-blqa.firebasestorage.app",
+            messagingSenderId: "1008783768310",
+            appId: "1:1008783768310:web:c09fe541a2f4d23e5b8ad7",
+            measurementId: "G-924H3FVC6Z"
+        };
+
+        // --- DICCIONARIOS ---
+        const WORDS = {
+            es: [
+                "tiempo", "persona", "año", "camino", "día", "cosa", "hombre", "mundo", "vida", "mano",
+                "parte", "ojo", "mujer", "lugar", "trabajo", "semana", "caso", "punto", "gobierno", "país",
+                "noche", "agua", "señor", "amigo", "gente", "alto", "bajo", "grande", "pequeño", "nuevo",
+                "viejo", "primero", "ultimo", "propio", "largo", "otro", "mismo", "bueno", "malo", "mayor",
+                "hacer", "decir", "poder", "querer", "saber", "pasar", "ver", "llegar", "creer", "hablar",
+                "sangre", "fuego", "sombra", "caos", "orden", "dios", "plan", "velocidad", "fuerza", "mente"
+            ],
+            en: [
+                "time", "person", "year", "way", "day", "thing", "man", "world", "life", "hand",
+                "part", "child", "eye", "woman", "place", "work", "week", "case", "point", "government",
+                "company", "number", "group", "problem", "fact", "be", "have", "do", "say", "get",
+                "make", "go", "know", "take", "see", "come", "think", "look", "want", "give",
+                "blood", "fire", "shadow", "chaos", "order", "god", "plan", "velocity", "power", "mind"
+            ]
+        };
+
+        // --- HELPERS ---
+        const generateWords = (lang, count = 50) => {
+            const list = WORDS[lang] || WORDS.es;
+            let res = [];
+            for (let i = 0; i < count; i++) {
+                res.push(list[Math.floor(Math.random() * list.length)]);
+            }
+            return res.join(" ");
+        };
+
+        const calculateWPM = (charsTyped, timeElapsedSeconds) => {
+            if (timeElapsedSeconds === 0) return 0;
+            const words = charsTyped / 5;
+            const minutes = timeElapsedSeconds / 60;
+            return Math.round(words / minutes);
+        };
+
+        // --- COMPONENTE PRINCIPAL ---
+        function App() {
+            // Esperar a que se carguen los módulos de Firebase
+            const [firebaseReady, setFirebaseReady] = useState(false);
+            const [services, setServices] = useState(null);
+
+            useEffect(() => {
+                const checkFirebase = setInterval(() => {
+                    if (window.firebaseModules) {
+                        const { initializeApp, getAuth, getFirestore } = window.firebaseModules;
+                        
+                        let app;
+                        try {
+                            app = initializeApp(firebaseConfig);
+                        } catch(e) {
+                            // Si ya existe (hot reload), la ignoramos
+                        }
+                        
+                        setServices(window.firebaseModules);
+                        setFirebaseReady(true);
+                        clearInterval(checkFirebase);
+                    }
+                }, 100);
+                return () => clearInterval(checkFirebase);
+            }, []);
+
+            if (!firebaseReady) return <div className="h-screen w-full flex items-center justify-center text-red-500 animate-pulse font-mono tracking-widest">INIT SYSTEM...</div>;
+
+            return <VelocityGame firebase={services} />;
+        }
+
+        function VelocityGame({ firebase }) {
+            const { getAuth, onAuthStateChanged, signOut, getFirestore, collection, addDoc, serverTimestamp, query, onSnapshot } = firebase;
+            const auth = getAuth();
+            const db = getFirestore();
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'velocity-gp-v1';
+
+            // Estados
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('home');
+            const [config, setConfig] = useState({ time: 30, lang: 'es' });
+            
+            // Game logic states
+            const [text, setText] = useState("");
+            const [userInput, setUserInput] = useState("");
+            const [timeLeft, setTimeLeft] = useState(30);
+            const [gameState, setGameState] = useState('waiting'); // waiting, playing, finished
+            const [wpm, setWpm] = useState(0);
+            const [accuracy, setAccuracy] = useState(100);
+            
+            const inputRef = useRef(null);
+            const timerRef = useRef(null);
+
+            // Auth Listener
+            useEffect(() => {
+                const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+                return () => unsubscribe();
+            }, []);
+
+            // Game Reset
+            useEffect(() => { resetGame(); }, [config]);
+
+            // Timer
+            useEffect(() => {
+                if (gameState === 'playing') {
+                    timerRef.current = setInterval(() => {
+                        setTimeLeft(prev => {
+                            if (prev <= 1) {
+                                finishGame();
+                                return 0;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+                } else {
+                    clearInterval(timerRef.current);
+                }
+                return () => clearInterval(timerRef.current);
+            }, [gameState]);
+
+            // Live Stats
+            useEffect(() => {
+                if (gameState === 'playing' || gameState === 'finished') {
+                    const timeElapsed = config.time - timeLeft;
+                    const cleanTime = timeElapsed > 0 ? timeElapsed : 1;
+                    const currentWpm = calculateWPM(userInput.length, cleanTime);
+                    setWpm(currentWpm);
+                }
+            }, [userInput, timeLeft]);
+
+            const resetGame = () => {
+                setText(generateWords(config.lang, 100));
+                setUserInput("");
+                setGameState('waiting');
+                setTimeLeft(config.time);
+                setWpm(0);
+                setAccuracy(100);
+                clearInterval(timerRef.current);
+                if (inputRef.current) inputRef.current.focus();
+            };
+
+            const finishGame = async () => {
+                setGameState('finished');
+                clearInterval(timerRef.current);
+
+                // Calcular precisión final
+                let correct = 0;
+                for(let i=0; i<userInput.length; i++) {
+                    if(userInput[i] === text[i]) correct++;
+                }
+                const finalAcc = userInput.length > 0 ? Math.round((correct / userInput.length) * 100) : 0;
+                setAccuracy(finalAcc);
+
+                // Guardar score
+                if (user && wpm > 0 && !user.isAnonymous) {
+                    try {
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard'), {
+                            uid: user.uid,
+                            userIdDisplay: user.email ? user.email.split('@')[0] : 'Unknown',
+                            wpm: wpm,
+                            accuracy: finalAcc,
+                            mode: `${config.time}s`,
+                            lang: config.lang,
+                            timestamp: serverTimestamp()
+                        });
+                    } catch(e) { console.error(e); }
+                }
+            };
+
+            const handleInput = (e) => {
+                const val = e.target.value;
+                if (gameState === 'finished') return;
+                
+                if (gameState === 'waiting') {
+                    setGameState('playing');
+                }
+
+                setUserInput(val);
+                
+                // Precisión live
+                let errs = 0;
+                for (let i = 0; i < val.length; i++) {
+                    if (val[i] !== text[i]) errs++;
+                }
+                const acc = Math.max(0, 100 - Math.round((errs / (val.length || 1)) * 100));
+                setAccuracy(acc);
+
+                // Append words
+                if (val.length > text.length - 20) {
+                    setText(prev => prev + " " + generateWords(config.lang, 20));
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col items-center p-4 relative">
+                    
+                    {/* BACKGROUND NOISE/OVERLAY */}
+                    <div className="fixed inset-0 pointer-events-none opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] z-0"></div>
+
+                    {/* HEADER */}
+                    <header className="w-full max-w-5xl flex justify-between items-center py-6 z-10">
+                        <div className="flex items-center gap-3 select-none">
+                            <Zap className="text-red-500" size={28} />
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tighter text-white">GODS PLAN <span className="text-red-600">|</span> VELOCITY</h1>
+                                <p className="text-[10px] text-red-500/60 tracking-[0.3em] uppercase">System Override</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            {!user ? (
+                                <button onClick={() => setView('login')} className="glass-btn px-4 py-2 rounded text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                                    <User size={14} /> Login ID
+                                </button>
+                            ) : (
+                                <div className="flex items-center gap-4 bg-black/40 px-4 py-2 rounded border border-red-900/30">
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-xs text-red-500 font-bold tracking-widest">OPERATOR</span>
+                                        <span className="text-sm text-white">{user.email.split('@')[0]}</span>
+                                    </div>
+                                    <button onClick={() => signOut(auth)} className="text-red-500 hover:text-white transition-colors">
+                                        <LogOut size={18} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </header>
+
+                    {/* MAIN */}
+                    <main className="w-full max-w-5xl flex-1 flex flex-col items-center justify-center relative z-10 min-h-[500px]">
+                        
+                        {view === 'login' ? (
+                            <LoginModal 
+                                firebase={firebase} 
+                                onClose={() => setView('home')} 
+                                onSuccess={() => setView('home')} 
+                            />
+                        ) : (
+                            <>
+                                {/* TOOLBAR */}
+                                <div className="glass-panel px-6 py-2 rounded-full flex gap-8 mb-16 animate-fade-in-up">
+                                    <div className="flex gap-2 items-center border-r border-red-900/30 pr-6">
+                                        <Globe size={14} className="text-red-500/50" />
+                                        <button onClick={() => setConfig({...config, lang: 'es'})} className={`text-xs font-bold uppercase transition-all ${config.lang === 'es' ? 'text-red-500 text-glow' : 'text-zinc-600 hover:text-zinc-400'}`}>ES</button>
+                                        <button onClick={() => setConfig({...config, lang: 'en'})} className={`text-xs font-bold uppercase transition-all ${config.lang === 'en' ? 'text-red-500 text-glow' : 'text-zinc-600 hover:text-zinc-400'}`}>EN</button>
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <Clock size={14} className="text-red-500/50" />
+                                        {[15, 30, 60].map(t => (
+                                            <button key={t} onClick={() => setConfig({...config, time: t})} className={`text-xs font-bold transition-all ${config.time === t ? 'text-red-500 text-glow' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                                                {t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* GAME STATS */}
+                                {gameState !== 'finished' && (
+                                    <div className="w-full flex justify-start gap-12 mb-4 h-16 pl-1">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-red-500/70 uppercase tracking-widest">Time</span>
+                                            <span className="text-4xl text-red-500 font-bold">{timeLeft}</span>
+                                        </div>
+                                        {gameState === 'playing' && (
+                                            <div className="flex flex-col fade-in">
+                                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">WPM</span>
+                                                <span className="text-4xl text-zinc-600 font-bold">{wpm}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* TYPING AREA */}
+                                {gameState !== 'finished' ? (
+                                    <div className="relative w-full group" onClick={() => inputRef.current && inputRef.current.focus()}>
+                                        <input
+                                            ref={inputRef}
+                                            type="text"
+                                            className="absolute opacity-0 w-full h-full cursor-default z-20"
+                                            value={userInput}
+                                            onChange={handleInput}
+                                            autoFocus
+                                            autoComplete="off"
+                                        />
+                                        
+                                        <div className="text-2xl leading-relaxed break-all font-medium tracking-wide min-h-[200px] text-justify relative">
+                                            {/* Waiting Message */}
+                                            {gameState === 'waiting' && (
+                                                <div className="absolute -top-10 left-0 text-red-500/50 text-xs animate-pulse flex items-center gap-2">
+                                                    <Terminal size={14} /> INITIALIZING PROTOCOL... TYPE TO START
+                                                </div>
+                                            )}
+
+                                            {text.split('').map((char, i) => {
+                                                if (i > userInput.length + 150) return null; // Performance trim
+
+                                                let colorClass = "text-zinc-700 transition-colors duration-100";
+                                                let isCursor = (i === userInput.length);
+
+                                                if (i < userInput.length) {
+                                                    if (userInput[i] === char) {
+                                                        colorClass = "text-zinc-300";
+                                                    } else {
+                                                        colorClass = "text-red-500 border-b-2 border-red-500";
+                                                    }
+                                                }
+
+                                                return (
+                                                    <span key={i} className={`relative ${colorClass}`}>
+                                                        {isCursor && (
+                                                            <span className="absolute -left-[1px] top-1 bottom-1 w-[2px] cursor-caret animate-caret rounded-full"></span>
+                                                        )}
+                                                        {char}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* RESULTS */
+                                    <div className="w-full flex flex-col items-center animate-fade-in-up">
+                                        <div className="glass-panel p-10 rounded-2xl w-full grid grid-cols-4 gap-4 mb-8">
+                                            <div className="col-span-1">
+                                                <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">WPM</p>
+                                                <p className="text-6xl text-red-500 font-bold text-glow">{wpm}</p>
+                                            </div>
+                                            <div className="col-span-1">
+                                                <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Accuracy</p>
+                                                <p className="text-6xl text-white font-bold">{accuracy}%</p>
+                                            </div>
+                                            <div className="col-span-1 flex items-end pb-2">
+                                                <div>
+                                                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Characters</p>
+                                                    <p className="text-2xl text-zinc-400">{userInput.length}</p>
+                                                </div>
+                                            </div>
+                                             <div className="col-span-1 flex items-end pb-2">
+                                                <div>
+                                                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Mode</p>
+                                                    <p className="text-2xl text-zinc-400">{config.time}s</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button onClick={resetGame} className="glass-btn px-8 py-3 rounded text-sm font-bold uppercase tracking-widest flex items-center gap-2 group">
+                                            <RotateCcw size={18} className="group-hover:-rotate-90 transition-transform duration-300" />
+                                            Reboot System
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* LEADERBOARD */}
+                                <Leaderboard firebase={firebase} user={user} refresh={gameState} />
+                            </>
+                        )}
+                    </main>
+
+                    {/* FOOTER DECORATION */}
+                    <div className="fixed bottom-0 left-0 w-full h-1 bg-gradient-to-r from-black via-red-900 to-black z-50"></div>
+                </div>
+            );
+        }
+
+        function LoginModal({ firebase, onClose, onSuccess }) {
+            const { signInWithEmailAndPassword, createUserWithEmailAndPassword, getAuth } = firebase;
+            const auth = getAuth();
+            
+            const [id, setId] = useState("");
+            const [pass, setPass] = useState("");
+            const [isReg, setIsReg] = useState(false);
+            const [err, setErr] = useState("");
+
+            const submit = async (e) => {
+                e.preventDefault();
+                setErr("");
+                const email = `${id.trim()}@godsplan.site`;
+                
+                try {
+                    if (isReg) await createUserWithEmailAndPassword(auth, email, pass);
+                    else await signInWithEmailAndPassword(auth, email, pass);
+                    onSuccess();
+                } catch (error) {
+                    if (error.code.includes('invalid-credential') || error.code.includes('user-not-found')) setErr("Invalid ID or Credentials");
+                    else if (error.code.includes('already-in-use')) setErr("ID Already Exists");
+                    else setErr("System Error: " + error.code);
+                }
+            };
+
+            return (
+                <div className="w-full max-w-md glass-panel p-8 rounded-xl animate-fade-in-up">
+                    <h2 className="text-2xl text-white font-bold mb-6 flex items-center gap-2">
+                        <User className="text-red-500" />
+                        {isReg ? "REGISTER ID" : "ACCESS ID"}
+                    </h2>
+                    
+                    <form onSubmit={submit} className="flex flex-col gap-4">
+                        <div>
+                            <label className="text-[10px] text-red-500 uppercase tracking-widest block mb-1">Agent ID</label>
+                            <div className="relative">
+                                <input 
+                                    className="w-full glass-input p-3 rounded font-mono text-lg"
+                                    value={id}
+                                    onChange={e => setId(e.target.value)}
+                                    placeholder="e.g. 17620"
+                                    required
+                                />
+                                <span className="absolute right-3 top-4 text-xs text-zinc-600 select-none">@godsplan.site</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-red-500 uppercase tracking-widest block mb-1">Passcode</label>
+                            <input 
+                                type="password"
+                                className="w-full glass-input p-3 rounded font-mono"
+                                value={pass}
+                                onChange={e => setPass(e.target.value)}
+                                placeholder="••••••"
+                                required
+                            />
+                        </div>
+
+                        {err && (
+                            <div className="text-red-500 text-xs bg-red-900/20 p-2 rounded border border-red-500/20 flex items-center gap-2">
+                                <AlertCircle size={12} /> {err}
+                            </div>
+                        )}
+
+                        <button type="submit" className="mt-4 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)]">
+                            {isReg ? "CREATE IDENTITY" : "AUTHENTICATE"}
+                        </button>
+                    </form>
+
+                    <div className="mt-4 text-center">
+                        <button onClick={() => {setIsReg(!isReg); setErr("")}} className="text-xs text-zinc-500 hover:text-red-500 transition-colors uppercase tracking-widest">
+                            {isReg ? "Back to Login" : "New User? Register"}
+                        </button>
+                    </div>
+                    
+                    <button onClick={onClose} className="absolute top-4 right-4 text-zinc-600 hover:text-white">✕</button>
+                </div>
+            );
+        }
+
+        function Leaderboard({ firebase, user, refresh }) {
+            const { getFirestore, collection, query, onSnapshot } = firebase;
+            const db = getFirestore();
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'velocity-gp-v1';
+            
+            const [scores, setScores] = useState([]);
+            const [filter, setFilter] = useState('30s');
+
+            useEffect(() => {
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard'));
+                const unsub = onSnapshot(q, snap => {
+                    const data = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                    const sorted = data.filter(s => s.mode === filter).sort((a,b) => b.wpm - a.wpm).slice(0, 10);
+                    setScores(sorted);
+                });
+                return () => unsub();
+            }, [filter, refresh]);
+
+            return (
+                <div className="w-full mt-20 max-w-2xl">
+                    <div className="flex justify-between items-end mb-4 border-b border-red-900/30 pb-2">
+                        <h3 className="text-red-500 font-bold flex items-center gap-2 tracking-widest uppercase text-sm">
+                            <Trophy size={16} /> Global Network
+                        </h3>
+                        <div className="flex gap-2">
+                            {['15s','30s','60s'].map(t => (
+                                <button 
+                                    key={t} onClick={()=>setFilter(t)} 
+                                    className={`text-[10px] px-2 py-1 rounded border transition-all ${filter===t ? 'border-red-500 bg-red-500/10 text-red-500' : 'border-transparent text-zinc-600 hover:text-zinc-400'}`}
+                                >
+                                    {t}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="glass-panel rounded-lg overflow-hidden">
+                        <table className="w-full text-xs text-left">
+                            <thead className="text-zinc-500 bg-black/40 uppercase tracking-wider">
+                                <tr>
+                                    <th className="px-4 py-3">Rank</th>
+                                    <th className="px-4 py-3">Agent</th>
+                                    <th className="px-4 py-3 text-right">Velocity (WPM)</th>
+                                    <th className="px-4 py-3 text-right">Precision</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-red-900/20">
+                                {scores.map((s, i) => (
+                                    <tr key={s.id} className={`${user && user.uid === s.uid ? 'bg-red-900/20' : 'hover:bg-red-900/5'} transition-colors`}>
+                                        <td className="px-4 py-3 font-bold text-zinc-600">#{i+1}</td>
+                                        <td className="px-4 py-3 font-mono text-zinc-300">
+                                            {s.userIdDisplay}
+                                            {user && user.uid === s.uid && <span className="ml-2 text-[8px] text-red-500 uppercase tracking-widest border border-red-500 px-1 rounded">YOU</span>}
+                                        </td>
+                                        <td className="px-4 py-3 text-right text-red-500 font-bold">{s.wpm}</td>
+                                        <td className="px-4 py-3 text-right text-zinc-400">{s.accuracy}%</td>
+                                    </tr>
+                                ))}
+                                {scores.length === 0 && (
+                                    <tr>
+                                        <td colSpan="4" className="px-4 py-8 text-center text-zinc-600 italic">No data intercepted yet.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
